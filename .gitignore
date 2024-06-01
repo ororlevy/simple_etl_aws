@@ -1,0 +1,6 @@
+# IDEs
+.idea/
+.vscode/
+
+# osx
+**/.DS_Store
