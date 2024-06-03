@@ -43,7 +43,7 @@ func NewDumper(ctx context.Context, config DumpConfig, downloader Downloader, wr
 }
 
 func (d *Dumper) Run() error {
-	d.initBuffer()
+	d.startBuffering()
 	d.startDownloading()
 
 	for {
@@ -72,7 +72,7 @@ func (d *Dumper) startDownloading() {
 	}()
 }
 
-func (d *Dumper) initBuffer() {
+func (d *Dumper) startBuffering() {
 	interval := time.Duration(d.config.TimeLimitInMilliseconds) * time.Millisecond
 	tick := time.NewTicker(interval)
 	go func() {
