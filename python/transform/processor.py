@@ -18,7 +18,6 @@ def create_df(jsons):
 
 
 def to_parquet(df):
-    df = df.drop_duplicates(subset='id').reset_index(drop=True)
     try:
         buffer = io.BytesIO()
         df.to_parquet(buffer, index=False)
@@ -28,11 +27,20 @@ def to_parquet(df):
         raise Exception(f"Could not write DataFrame to Parquet: {e}")
 
 
-def get_file_name():
+def get_ts_milliseconds():
     current_time_seconds = time.time()
 
     current_time_milliseconds = int(current_time_seconds * 1000)
     return str(current_time_milliseconds)
+
+
+def create_file_name(df, name_attr):
+    current_ts = get_ts_milliseconds()
+    if hasattr(df, name_attr):
+        filename = f"{current_ts}-{df.attrs[name_attr]}.parquet"
+    else:
+        filename = f"{current_ts}.parquet"
+    return filename
 
 
 class Processor:
@@ -67,13 +75,13 @@ class Processor:
         if len(json_data_list) > 0:
             try:
                 df = create_df(json_data_list)
-                transformed = self.mapper.transform(df)
+                transformed_objects = self.mapper.transform(df)
 
-                parquet_data = to_parquet(transformed)
-
-                parquet_file_name = f'{get_file_name()}.parquet'
-                parquet_file_path = os.path.join(output_path, parquet_file_name)
-                self.uploader.upload_file(parquet_file_path, parquet_data)
+                for data in transformed_objects:
+                    parquet_data = to_parquet(data)
+                    parquet_file_name = create_file_name(data, self.mapper.NAME_ATTRIBUTE)
+                    parquet_file_path = os.path.join(output_path, parquet_file_name)
+                    self.uploader.upload_file(parquet_file_path, parquet_data)
                 self.state_manager.update_state(os.path.basename(files[-1]))
             except Exception as e:
                 raise Exception("could not process files: {}".format(e))

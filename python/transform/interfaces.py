@@ -24,14 +24,21 @@ class FilesManager(ABC):
 
 
 class Mapper(ABC):
+    NAME_ATTRIBUTE = 'name'
+
     def __init__(self):
         self.df = None
 
     @abstractmethod
-    def transform(self, df: DataFrame) -> DataFrame:
+    def transform(self, df: pd.DataFrame) -> List[pd.DataFrame]:
+        """Transform the given dataframe to multiple frames to support additional outputs, for example group by.
+
+        The transform method should also add a 'name' attribute to each resulting DataFrame
+        as an attribute (not a column), to ensure they can be identified and used appropriately
+        in subsequent processes.
+
+        """
         pass
-
-
 
 
 T = TypeVar('T')
