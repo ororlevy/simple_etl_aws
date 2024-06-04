@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/rs/zerolog/log"
+	"simple_etl_aws/common/filehandler"
 	"time"
 )
 
 type Dumper struct {
-	ctx        context.Context
-	cancel     context.CancelFunc
-	config     DumpConfig
-	downloader Downloader
-	fileWriter FileWriter
-	items      []map[string]interface{}
-	pending    chan map[string]interface{}
-	bufferSize int
-	errors     chan error
+	ctx         context.Context
+	cancel      context.CancelFunc
+	config      DumpConfig
+	downloader  Downloader
+	fileHandler filehandler.Handler
+	items       []map[string]interface{}
+	pending     chan map[string]interface{}
+	bufferSize  int
+	errors      chan error
 }
 
 type DumpConfig struct {
@@ -26,19 +27,19 @@ type DumpConfig struct {
 	// TODO add general timeout
 }
 
-func NewDumper(ctx context.Context, config DumpConfig, downloader Downloader, writer FileWriter) *Dumper {
+func NewDumper(ctx context.Context, config DumpConfig, downloader Downloader, handler filehandler.Handler) *Dumper {
 	childCtx, cancel := context.WithCancel(ctx)
 	return &Dumper{
 		ctx:    childCtx,
 		cancel: cancel,
 		// TODO change it read from a path
-		config:     config,
-		downloader: downloader,
-		fileWriter: writer,
-		items:      make([]map[string]interface{}, 0),
-		bufferSize: 0,
-		pending:    make(chan map[string]interface{}),
-		errors:     make(chan error),
+		config:      config,
+		downloader:  downloader,
+		fileHandler: handler,
+		items:       make([]map[string]interface{}, 0),
+		bufferSize:  0,
+		pending:     make(chan map[string]interface{}),
+		errors:      make(chan error),
 	}
 }
 
@@ -123,7 +124,7 @@ func (d *Dumper) dump() {
 	fileName := fmt.Sprintf("%d", time.Now().UnixNano()/int64(time.Millisecond))
 	log.Info().Msgf("Dumping file: name: %s size - %d bytes", fileName, len(data))
 
-	err = d.fileWriter.Write(data, fileName)
+	err = d.fileHandler.Write(data, fileName)
 	if err != nil {
 		ferr := fmt.Errorf("could dump file, can't write file %w", err)
 		log.Error().Err(ferr)

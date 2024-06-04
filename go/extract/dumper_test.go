@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"simple_etl_aws/common/filehandler"
 	"testing"
 	"time"
 )
@@ -62,7 +63,7 @@ func TestDumper(t *testing.T) {
 		{"time limit", 1000, DumpConfig{TimeLimitInMilliseconds: 500, SizeLimitInMB: 1}, 2, data},
 	}
 
-	fileWriter := FileSystemWriter{filePath: tempDir}
+	fileSystemHandler := filehandler.NewFileSystemHandler(tempDir)
 
 	for _, tcase := range testCases {
 		t.Run(tcase.name, func(t *testing.T) {
@@ -71,7 +72,7 @@ func TestDumper(t *testing.T) {
 				responseTimeInMilliseconds: time.Duration(tcase.responseTime) * time.Millisecond,
 			}
 
-			dumper := NewDumper(context.Background(), tcase.config, &downloader, fileWriter)
+			dumper := NewDumper(context.Background(), tcase.config, &downloader, fileSystemHandler)
 
 			err := dumper.Run()
 			if err != nil {
