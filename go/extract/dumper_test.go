@@ -3,14 +3,15 @@ package extract
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/magiconair/properties/assert"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"simple_etl_aws/common/filehandler"
+	"simple_etl_aws/common/test"
 	"testing"
 	"time"
 )
@@ -36,7 +37,6 @@ func (dm *dummyDownloader) Download(output chan<- map[string]interface{}) error 
 }
 
 func TestDumper(t *testing.T) {
-
 	tempDir, err := os.MkdirTemp("", "test")
 	if err != nil {
 		t.Errorf("could not create temp file %v", err)
@@ -44,26 +44,91 @@ func TestDumper(t *testing.T) {
 
 	defer os.RemoveAll(tempDir)
 
+	ctx, client, region, teardown := test.SetupLocalStack(t)
+
+	defer teardown()
+
+	fileSystemHandler := filehandler.NewFileSystemHandler(tempDir)
+	bucketName := "testbucket"
+	s3Handler := filehandler.NewS3Handler(ctx, client, bucketName)
+
+	_, err = client.CreateBucket(ctx, &s3.CreateBucketInput{
+		Bucket: &bucketName,
+		CreateBucketConfiguration: &types.CreateBucketConfiguration{
+			LocationConstraint: types.BucketLocationConstraint(region),
+		},
+	})
+	if err != nil {
+		t.Fatalf("could not create bucket: %v", err)
+	}
+
 	//nolint: dogsled
 	_, filename, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Dir(filename)
 
-	data := readFile(t, filepath.Join(projectRoot, testDataPath))
+	data := readFile(t, filehandler.NewFileSystemHandler(projectRoot), testDataPath)
+
+	if err != nil {
+		t.Fatalf("could not load test data: %v", err)
+	}
 
 	testCases := []struct {
 		name              string
 		responseTime      int
 		config            DumpConfig
+		handler           filehandler.Handler
 		expectedFilecount int
 		expectedResult    []map[string]interface{}
 	}{
-		{"basic flow", 0, DumpConfig{TimeLimitInMilliseconds: 1000, SizeLimitInMB: 1}, 1, data},
+		{
+			"file system with basic flow",
+			0,
+			DumpConfig{TimeLimitInMilliseconds: 1000, SizeLimitInMB: 1},
+			fileSystemHandler,
+			1, data,
+		},
 		// we change the response time to have different file name
-		{"size limit", 100, DumpConfig{TimeLimitInMilliseconds: 1000, SizeLimitInMB: 0}, 2, data},
-		{"time limit", 1000, DumpConfig{TimeLimitInMilliseconds: 500, SizeLimitInMB: 1}, 2, data},
+		{
+			"file system with size limit",
+			100,
+			DumpConfig{TimeLimitInMilliseconds: 1000, SizeLimitInMB: 0},
+			fileSystemHandler,
+			2,
+			data,
+		},
+		{
+			"file system with time limit",
+			1000,
+			DumpConfig{TimeLimitInMilliseconds: 500, SizeLimitInMB: 1},
+			fileSystemHandler,
+			2,
+			data,
+		},
+		{
+			"s3 with basic flow",
+			0,
+			DumpConfig{TimeLimitInMilliseconds: 1000, SizeLimitInMB: 1},
+			s3Handler,
+			1, data,
+		},
+		// we change the response time to have different file name
+		{
+			"s3 with size limit",
+			100,
+			DumpConfig{TimeLimitInMilliseconds: 1000, SizeLimitInMB: 0},
+			s3Handler,
+			2,
+			data,
+		},
+		{
+			"s3 with time limit",
+			1000,
+			DumpConfig{TimeLimitInMilliseconds: 500, SizeLimitInMB: 1},
+			s3Handler,
+			2,
+			data,
+		},
 	}
-
-	fileSystemHandler := filehandler.NewFileSystemHandler(tempDir)
 
 	for _, tcase := range testCases {
 		t.Run(tcase.name, func(t *testing.T) {
@@ -72,59 +137,58 @@ func TestDumper(t *testing.T) {
 				responseTimeInMilliseconds: time.Duration(tcase.responseTime) * time.Millisecond,
 			}
 
-			dumper := NewDumper(context.Background(), tcase.config, &downloader, fileSystemHandler)
+			dumper := NewDumper(context.Background(), tcase.config, &downloader, tcase.handler)
 
 			err := dumper.Run()
 			if err != nil {
 				t.Fatalf("Could not dump files: %v", err)
 			}
 
-			files, err := os.ReadDir(tempDir)
+			files, err := tcase.handler.List()
 			if err != nil {
 				t.Fatalf("could not read files %v", err)
 			}
 
 			assert.Equal(t, len(files), tcase.expectedFilecount)
 
-			result := readAllfilesAndConcat(t, tempDir, files)
+			result := readAllfilesAndConcat(t, files, tcase.handler)
 
 			assert.Equal(t, reflect.DeepEqual(result, tcase.expectedResult), true)
 
-			cleanFiles(t, tempDir, files)
+			cleanFiles(t, files, tcase.handler)
 		})
 	}
 
 }
 
-func readFile(t *testing.T, path string) []map[string]interface{} {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("could not load data %v", err)
-	}
-
-	var items []map[string]interface{}
-	if err := json.Unmarshal(data, &items); err != nil {
-		fmt.Printf(string(data))
-		t.Fatalf("Failed to unmarshal JSON: %v", err)
-	}
-
-	return items
-}
-
-func readAllfilesAndConcat(t *testing.T, path string, files []fs.DirEntry) []map[string]interface{} {
+func readAllfilesAndConcat(t *testing.T, files []string, handler filehandler.Handler) []map[string]interface{} {
 
 	result := make([]map[string]interface{}, 0)
 
 	for _, file := range files {
-		result = append(result, readFile(t, filepath.Join(path, file.Name()))...)
+		items := readFile(t, handler, file)
+		result = append(result, items...)
 	}
 
 	return result
 }
 
-func cleanFiles(t *testing.T, path string, files []fs.DirEntry) {
+func readFile(t *testing.T, handler filehandler.Handler, file string) []map[string]interface{} {
+	data, err := handler.Read(file)
+	if err != nil {
+		t.Fatalf("failed, can't read result files: %v", err)
+	}
+
+	var items []map[string]interface{}
+	if err := json.Unmarshal(data, &items); err != nil {
+		t.Fatalf("Failed to unmarshal JSON: %v", err)
+	}
+	return items
+}
+
+func cleanFiles(t *testing.T, files []string, handler filehandler.Handler) {
 	for _, file := range files {
-		err := os.Remove(filepath.Join(path, file.Name()))
+		err := handler.Delete(file)
 		if err != nil {
 			t.Fatalf("could not clean file %v", err)
 		}

@@ -11,6 +11,8 @@ type FileSystemHandler struct {
 	filePath string
 }
 
+var _ Handler = FileSystemHandler{}
+
 func NewFileSystemHandler(filePath string) *FileSystemHandler {
 	return &FileSystemHandler{filePath: filePath}
 }
@@ -31,7 +33,7 @@ func (fsh FileSystemHandler) Write(data []byte, fileName string) error {
 }
 
 func (fsh FileSystemHandler) Read(fileName string) ([]byte, error) {
-	file, err := os.Open(fileName)
+	file, err := os.Open(filepath.Join(fsh.filePath, fileName))
 	if err != nil {
 		return nil, err
 	}
@@ -52,4 +54,13 @@ func (fsh FileSystemHandler) List() ([]string, error) {
 	}
 
 	return files, nil
+}
+
+func (fsh FileSystemHandler) Delete(fileName string) error {
+	err := os.Remove(filepath.Join(fsh.filePath, fileName))
+	if err != nil {
+		return fmt.Errorf("could not remove file: %w", err)
+	}
+
+	return nil
 }
