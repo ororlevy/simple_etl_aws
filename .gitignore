@@ -4,3 +4,10 @@
 
 # osx
 **/.DS_Store
+
+docker/localstack
+go/output.txt
+.infra/.terraform
+.terraform.lock.hcl
+terraform.tfstate*
+/resources

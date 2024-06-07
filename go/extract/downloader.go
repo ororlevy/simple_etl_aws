@@ -11,7 +11,7 @@ type Downloader interface {
 }
 
 type URLDownloaderConfig struct {
-	Url string
+	Url string `mapstructure:"url,omitempty"`
 }
 
 type URLDownloader struct {

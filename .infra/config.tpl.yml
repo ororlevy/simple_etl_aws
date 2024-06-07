@@ -1,0 +1,15 @@
+type: "${type}"
+region: "${region}"
+endpoint: "${endpoint}"
+credentials:
+  key: "${credentials_key}"
+  secret: "${credentials_secret}"
+
+dumper:
+  time-limit-milli: ${dumper_time_limit_milli}
+  size-limit-mb: ${dumper_size_limit_mb}
+
+downloader:
+  url: "${downloader_url}"
+
+bucket: "${bucket}"

@@ -1,0 +1,15 @@
+type: "extract"
+region: "eu-west-1"
+endpoint: "http://localhost:4566"
+credentials:
+  Key: "test"
+  secret: "test"
+
+dumper:
+  time-limit-milli: 100
+  size-limit-mb: 1
+
+downloader:
+  url: "https://jsonplaceholder.typicode.com/users"
+
+bucket: "local-test"

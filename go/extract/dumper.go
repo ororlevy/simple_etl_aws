@@ -22,8 +22,8 @@ type Dumper struct {
 }
 
 type DumpConfig struct {
-	TimeLimitInMilliseconds int
-	SizeLimitInMB           int
+	TimeLimitInMilliseconds int `mapstructure:"time-limit-milli,omitempty"`
+	SizeLimitInMB           int `mapstructure:"size-limit-mb,omitempty"`
 	// TODO add general timeout
 }
 
