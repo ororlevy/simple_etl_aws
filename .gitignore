@@ -11,3 +11,6 @@ go/output.txt
 .terraform.lock.hcl
 terraform.tfstate*
 /resources
+/lambda
+localstack_ip.txt
+.infra/localstack/.terraform

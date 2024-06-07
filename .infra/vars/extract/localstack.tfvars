@@ -6,4 +6,4 @@ credentials_secret      = "test"
 dumper_time_limit_milli = 100
 dumper_size_limit_mb    = 1
 downloader_url          = "https://jsonplaceholder.typicode.com/users"
-bucket                  = "local-test"
+bucket                  = "raw-data"
