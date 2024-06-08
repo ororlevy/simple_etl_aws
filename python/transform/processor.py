@@ -44,13 +44,13 @@ def create_file_name(df, name_attr):
 
 
 class Processor:
-    def __init__(self, getter: FilesManager, mapper: Mapper, uploader: FilesManager, state_manager: StateManager[str]):
+    def __init__(self, getter: FilesManager, mapper: Mapper, uploader: FilesManager, state_manager: StateManager):
         self.getter = getter
         self.mapper = mapper
         self.uploader = uploader
         self.state_manager = state_manager
 
-    def process(self, input_path: str, output_path: str) -> None:
+    def process(self) -> None:
         state = self.state_manager.get_state()
         last_processed = ""
 
@@ -58,7 +58,7 @@ class Processor:
             last_processed = state
 
         try:
-            files = [file for file in self.getter.get_files(input_path) if file.endswith(".json")]
+            files = [file for file in self.getter.list_files() if file.endswith(".json")]
         except Exception as e:
             raise Exception("could not process files: {}".format(e))
 
@@ -68,7 +68,7 @@ class Processor:
             if os.path.basename(file) <= last_processed:
                 continue
 
-            data = self.getter.download_file(file)
+            data = self.getter.download_file(file).decode("utf-8")
             json_data = json.loads(data)
             json_data_list.append(json_data)
 
@@ -80,8 +80,7 @@ class Processor:
                 for data in transformed_objects:
                     parquet_data = to_parquet(data)
                     parquet_file_name = create_file_name(data, self.mapper.NAME_ATTRIBUTE)
-                    parquet_file_path = os.path.join(output_path, parquet_file_name)
-                    self.uploader.upload_file(parquet_file_path, parquet_data)
+                    self.uploader.upload_file(parquet_file_name, parquet_data)
                 self.state_manager.update_state(os.path.basename(files[-1]))
             except Exception as e:
                 raise Exception("could not process files: {}".format(e))

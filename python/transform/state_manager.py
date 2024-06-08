@@ -4,7 +4,7 @@ from typing import Optional
 from transform.interfaces import StateManager, FilesManager
 
 
-class SimpleState(StateManager[str], ABC):
+class SimpleState(StateManager, ABC):
 
     def __init__(self, state_file_name, files_manager: FilesManager):
         self.files_manager = files_manager
@@ -12,7 +12,7 @@ class SimpleState(StateManager[str], ABC):
 
     def get_state(self) -> Optional[str]:
         try:
-            state = self.files_manager.download_file(self.state_file_name)
+            state = self.files_manager.download_file(self.state_file_name).decode('utf-8')
             return state
         except Exception as _:
             return None

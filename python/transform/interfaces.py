@@ -1,24 +1,22 @@
-import io
 from abc import ABC, abstractmethod
-from typing import List, TypeVar, Generic, Optional
-import pyarrow as pq
+from typing import List
+
 import pandas as pd
-from pandas import DataFrame
 
 
 class FilesManager(ABC):
     @abstractmethod
-    def get_files(self, path: str) -> List[str]:
+    def list_files(self) -> List[str]:
         """Fetch the list of file paths from the given directory or bucket."""
         pass
 
     @abstractmethod
-    def download_file(self, file_path: str) -> str:
+    def download_file(self, file_name: str) -> bytes:
         """Download a file and return its content as a string."""
         pass
 
     @abstractmethod
-    def upload_file(self, file_path: str, data: bytes) -> None:
+    def upload_file(self, file_name: str, data: bytes) -> None:
         """Upload the given data to the specified file path."""
         pass
 
@@ -41,16 +39,13 @@ class Mapper(ABC):
         pass
 
 
-T = TypeVar('T')
-
-
-class StateManager(ABC, Generic[T]):
+class StateManager(ABC):
     @abstractmethod
-    def get_state(self) -> Optional[T]:
+    def get_state(self) -> str:
         """Get the current state, return None if no state is available."""
         pass
 
     @abstractmethod
-    def update_state(self, state: T) -> None:
+    def update_state(self, state: str) -> None:
         """Update the state."""
         pass
